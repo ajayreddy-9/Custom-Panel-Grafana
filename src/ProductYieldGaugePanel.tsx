@@ -1,99 +1,83 @@
 // src/ProductYieldGaugePanel.tsx
 import * as React from 'react';
-import { PanelProps } from '@grafana/data';
+import { PanelProps, getValueFormat, reduceField } from '@grafana/data';
 import { Gauge, useTheme2 } from '@grafana/ui';
-import { ThresholdsMode } from '@grafana/schema';
 import { PanelOptions } from './types';
 
 interface Props extends PanelProps<PanelOptions> {}
 
-export const ProductYieldGaugePanel: React.FC<Props> = ({ data, width, height, options }) => {
+export const ProductYieldGaugePanel: React.FC<Props> = ({ data, width, height, options, fieldConfig }) => {
   const theme = useTheme2();
 
+  // Handle no data case
   if (!data || data.series.length === 0 || data.series[0].fields.length === 0) {
     return <div>No data available.</div>;
   }
 
+  // Get the first series and numeric field
   const series = data.series[0];
-  const valueField = series.fields.find((field) => field.name === 'value');
-  const metricField = series.fields.find((field) => field.name === 'metric');
+  const valueField = series.fields.find((field) => field.type === 'number');
+  const labelField = series.fields.find((field) => field.type === 'string') || valueField;
 
   if (!valueField || valueField.values.length === 0) {
-    return <div>Data field not found or empty.</div>;
+    return <div>No numeric data found.</div>;
   }
 
-  const staticThresholds = [
-    { value: 0, color: 'red' },
-    { value: 85, color: 'yellow' },
-    { value: 90, color: 'green' },
-    { value: 100, color: 'blue' },
-  ];
+  // Default to 'last' calculation (mimics default Gauge behavior)
+  const reducedValue = reduceField({ field: valueField, reducers: ['last'] })['last'];
+  const label = labelField
+    ? labelField.values[labelField.values.length - 1] || options.productName || 'Gauge'
+    : options.productName || 'Gauge';
 
-  return (
-    <div style={{ overflow: 'scroll', height: '100%', width: '100%' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-        {valueField.values.map((value, index) => {
-          const yieldValue = Number(value.toFixed(2)); // Value in range 0-100
-          const metricValue = metricField?.values[index];
-          //   console.log(metricValue);
-          // Calculate color based on thresholds
-          let color = theme.colors.text.primary; // Default fallback
-          for (const threshold of staticThresholds) {
-            if (yieldValue >= threshold.value) {
-              color = threshold.color; // Last matching threshold wins
-            }
-          }
+  // Use fieldConfig defaults or fallbacks
+  const min = fieldConfig.defaults.min || 0;
+  const max = fieldConfig.defaults.max || 100;
+  const unit = fieldConfig.defaults.unit || 'none';
+  const thresholds = fieldConfig.defaults.thresholds || {
+    mode: 'absolute',
+    steps: [
+      { value: min, color: 'red' },
+      { value: max * 0.8, color: 'yellow' },
+      { value: max, color: 'green' },
+    ],
+  };
 
-          const gaugeProps = {
-            value: {
-              numeric: yieldValue, // Raw numeric value (0-100)
-              percent: yieldValue / 100, // Normalized to 0-1 for gauge arc
-              color: color, // Apply calculated color
-              title: metricValue || options.productName || 'Yield',
-              text: `${yieldValue}%`, // Display with % symbol
-            },
-            width: width / 3 - 16, // Adjust for grid
-            height: height - 20, // Ensure enough height
-            showThresholdMarkers: true, // Use option toggle
-            showThresholdLabels: true, // Use option toggle
-            fieldConfig: {
-              displayName: options.productName || 'Yield',
-              min: 0,
-              max: 100,
-              unit: 'percent', // Set unit to percentage
-              thresholds: {
-                mode: ThresholdsMode.Absolute,
-                steps: staticThresholds,
-              },
-            },
-            theme: theme,
-            // onClick: async () => {
-            //   console.log(metricValue);
-            //   alert(metricValue);
-            //   await fetch(`https://google.com/search?q=${metricValue}`);
-            // },
-          };
+  // Calculate color based on thresholds
+  let color = theme.colors.text.primary;
+  for (const threshold of thresholds.steps) {
+    if (reducedValue >= threshold.value) {
+      color = threshold.color;
+    }
+  }
 
-          return (
-            <div
-              key={index}
-              style={{ cursor: 'pointer' }}
-              onClick={async () => {
-                console.log(metricValue);
-                // alert(metricValue);
-                window.parent.postMessage(metricValue, '*');
-                // const response = await fetch(`https://jsonplaceholder.typicode.com/posts`);
-                // const data = await response.json();
-                // alert(data);
-                // alert('Hello from iframe!');
-              }}
-            >
-              {' '}
-              <Gauge {...gaugeProps} key={index} />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  // Format value using Grafana’s utility
+  const formattedValue = getValueFormat(unit)(reducedValue, fieldConfig.defaults.decimals);
+
+  const gaugeProps = {
+    value: {
+      numeric: reducedValue,
+      percent: (reducedValue - min) / (max - min), // Normalize to 0-1
+      color: color,
+      title: label,
+      text: formattedValue.text + (formattedValue.suffix || ''),
+    },
+    width: width,
+    height: height,
+    showThresholdMarkers: true,
+    showThresholdLabels: true,
+    // Use defaults from Gauge component, override with fieldConfig if set
+    // showThresholdMarkers: fieldConfig.defaults.custom?.showThresholdMarkers ?? true,
+    // showThresholdLabels: fieldConfig.defaults.custom?.showThresholdLabels ?? false,
+    fieldConfig: {
+      displayName: options.productName || label,
+      min: min,
+      max: max,
+      unit: unit,
+      thresholds: thresholds,
+    },
+    theme: theme,
+    // Text sizes default to Gauge component’s built-in values
+  };
+
+  return <Gauge {...gaugeProps} />;
 };

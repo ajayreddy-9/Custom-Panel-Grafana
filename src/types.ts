@@ -1,8 +1,7 @@
-import { ThresholdsConfig, DataQuery } from '@grafana/schema';
+// src/types.ts
+import { DataQuery } from '@grafana/schema';
 
 export interface PanelOptions {
-  productName: string;
-  valueFieldName: string;
-  thresholds?: ThresholdsConfig;
-  query?: DataQuery; // Add query option type
+  productName?: string; // Optional custom name (our only custom addition)
+  query?: DataQuery; // Optional for future use
 }

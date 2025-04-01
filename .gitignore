@@ -7,6 +7,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 node_modules/
+tests/
 
 # yarn
 .yarn/cache
@@ -44,4 +45,5 @@ ci/
 .idea
 
 .eslintcache
-.DS_Store
+.DS_Store 
+.github/
