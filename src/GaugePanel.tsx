@@ -15,6 +15,8 @@ import { BarGaugeSizing, VizOrientation } from '@grafana/schema';
 import { Gauge, VizRepeater, VizRepeaterRenderValueProps } from '@grafana/ui';
 // import { DataLinksContextMenuApi } from '@grafana/ui/dist/esm/components/DataLinks/DataLinksContextMenu';
 import { config } from 'config';
+import { defaultOptions, Options } from './panelcfg.gen';
+import './GaugePanel.css';
 
 export function clearNameForSingleSeries(count: number, field: FieldConfig, display: DisplayValue): DisplayValue {
   if (count === 1 && !field.displayName) {
@@ -25,9 +27,22 @@ export function clearNameForSingleSeries(count: number, field: FieldConfig, disp
 
   return display;
 }
-import { defaultOptions, Options } from './panelcfg.gen';
+interface State {
+  activeGaugeId: string;
+}
 
-export class GaugePanel extends PureComponent<PanelProps<Options>> {
+export class GaugePanel extends PureComponent<PanelProps<Options>, State> {
+  state: State = {
+    activeGaugeId: '',
+  };
+
+  handleGaugeClick = (title: string) => {
+    this.setState({ activeGaugeId: title }, () => {
+      // console.log('State updated, activeGaugeId:', this.state.activeGaugeId);
+      window.parent.postMessage(title, '*');
+    });
+  };
+
   renderComponent = (
     valueProps: VizRepeaterRenderValueProps<FieldDisplay>
     // menuProps: DataLinksContextMenuApi
@@ -37,7 +52,23 @@ export class GaugePanel extends PureComponent<PanelProps<Options>> {
     const { field, display } = value;
     // const { openMenu, targetClassName } = menuProps;
 
+    const isActive = display.title === this.state.activeGaugeId;
+
+    // const gaugeStyle: React.CSSProperties = {
+    //   border: isActive ? '3px solid green' : 'none',
+    //   padding: isActive ? '4px' : '0',
+    //   borderRadius: '4px',
+    //   boxSizing: 'border-box',
+    //   // backgroundColor: isActive ? 'rgba(0, 255, 0, 0.05)' : 'transparent',
+    //   cursor: 'pointer',
+    //   width: '100%',
+    //   height: '100%',
+    // };
+
+    // console.log('Rendering gauge, title:', display.title, 'isActive:', isActive);
+
     return (
+      // <div style={gaugeStyle} onClick={() => this.handleGaugeClick(display.title!)}>
       <Gauge
         value={clearNameForSingleSeries(count, fieldConfig.defaults, display)}
         width={width}
@@ -47,14 +78,19 @@ export class GaugePanel extends PureComponent<PanelProps<Options>> {
         showThresholdLabels={options.showThresholdLabels}
         showThresholdMarkers={options.showThresholdMarkers}
         theme={config.theme2}
+        // onClick={() => {
+        //   console.log(display.title);
+        //   // alert(display.title);
+        //   window.parent.postMessage(display.title, '*');
+        // }}
         onClick={() => {
-          console.log(display.title);
-          // alert(display.title);
-          window.parent.postMessage(display.title, '*');
+          this.handleGaugeClick(display.title!);
         }}
         // className={targetClassName}
+        className={`${isActive ? 'custom-gauge active-gauge' : 'custom-gauge'}`}
         orientation={options.orientation}
       />
+      // </div>
     );
   };
 
@@ -92,7 +128,7 @@ export class GaugePanel extends PureComponent<PanelProps<Options>> {
         }
       }
     }
-    return getFieldDisplayValues({
+    const values = getFieldDisplayValues({
       fieldConfig,
       reduceOptions: options.reduceOptions,
       replaceVariables,
@@ -100,6 +136,13 @@ export class GaugePanel extends PureComponent<PanelProps<Options>> {
       data: data.series,
       timeZone,
     });
+
+    if (this.state.activeGaugeId === '' && values.length > 0) {
+      const firstGaugeTitle = values[0].display.title!;
+      this.setState({ activeGaugeId: firstGaugeTitle });
+    }
+
+    return values;
   };
 
   calculateGaugeSize = () => {
@@ -118,11 +161,14 @@ export class GaugePanel extends PureComponent<PanelProps<Options>> {
 
   render() {
     const { height, width, data, renderCounter, options } = this.props;
-
     const { minVizHeight, minVizWidth } = this.calculateGaugeSize();
+
+    const { activeGaugeId } = this.state;
+    // console.log('Rendering GaugePanel, activeGaugeId:', activeGaugeId);
 
     return (
       <VizRepeater
+        key={activeGaugeId} // Force re-render on state change
         getValues={this.getValues}
         renderValue={this.renderValue}
         width={width}
