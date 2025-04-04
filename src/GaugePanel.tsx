@@ -44,7 +44,8 @@ export class GaugePanel extends PureComponent<PanelProps<Options>, State> {
   };
 
   renderComponent = (
-    valueProps: VizRepeaterRenderValueProps<FieldDisplay>
+    valueProps: VizRepeaterRenderValueProps<FieldDisplay>,
+    activeGaugeId: string
     // menuProps: DataLinksContextMenuApi
   ): JSX.Element => {
     const { options, fieldConfig } = this.props;
@@ -52,7 +53,7 @@ export class GaugePanel extends PureComponent<PanelProps<Options>, State> {
     const { field, display } = value;
     // const { openMenu, targetClassName } = menuProps;
 
-    const isActive = display.title === this.state.activeGaugeId;
+    const isActive = display.title === activeGaugeId;
 
     // const gaugeStyle: React.CSSProperties = {
     //   border: isActive ? '3px solid green' : 'none',
@@ -94,24 +95,24 @@ export class GaugePanel extends PureComponent<PanelProps<Options>, State> {
     );
   };
 
-  renderValue = (valueProps: VizRepeaterRenderValueProps<FieldDisplay>): JSX.Element => {
-    // const { value } = valueProps;
-    // const { getLinks, hasLinks } = value;
+  // renderValue = (valueProps: VizRepeaterRenderValueProps<FieldDisplay>): JSX.Element => {
+  //   // const { value } = valueProps;
+  //   // const { getLinks, hasLinks } = value;
 
-    // if (hasLinks && getLinks) {
-    //   return (
-    //     <DataLinksContextMenu links={getLinks} style={{ flexGrow: 1 }}>
-    //       {(api) => {
-    //         return this.renderComponent(valueProps, api);
-    //       }}
-    //     </DataLinksContextMenu>
-    //   );
-    // }
+  //   // if (hasLinks && getLinks) {
+  //   //   return (
+  //   //     <DataLinksContextMenu links={getLinks} style={{ flexGrow: 1 }}>
+  //   //       {(api) => {
+  //   //         return this.renderComponent(valueProps, api);
+  //   //       }}
+  //   //     </DataLinksContextMenu>
+  //   //   );
+  //   // }
 
-    // console.log('valueProps', valueProps);
+  //   // console.log('valueProps', valueProps);
 
-    return this.renderComponent(valueProps);
-  };
+  //   return this.renderComponent(valueProps, );
+  // };
 
   getValues = (): FieldDisplay[] => {
     const { data, options, replaceVariables, fieldConfig, timeZone } = this.props;
@@ -166,11 +167,13 @@ export class GaugePanel extends PureComponent<PanelProps<Options>, State> {
     const { activeGaugeId } = this.state;
     // console.log('Rendering GaugePanel, activeGaugeId:', activeGaugeId);
 
+    const renderValue = (valueProps: VizRepeaterRenderValueProps<FieldDisplay>): JSX.Element => {
+      return this.renderComponent(valueProps, activeGaugeId);
+    };
     return (
       <VizRepeater
-        key={activeGaugeId} // Force re-render on state change
         getValues={this.getValues}
-        renderValue={this.renderValue}
+        renderValue={renderValue}
         width={width}
         height={height}
         source={data}
